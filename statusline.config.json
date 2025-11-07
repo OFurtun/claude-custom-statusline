@@ -1,0 +1,8 @@
+{
+  "show_cache": true,
+  "show_git": true,
+  "show_lines": true,
+  "show_velocity": false,
+  "compact_mode": true,
+  "context_limit": 200000
+}
