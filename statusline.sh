@@ -13,16 +13,27 @@ if [ -f "$CONFIG_FILE" ]; then
     SHOW_GIT=$(jq -r '.show_git // true' "$CONFIG_FILE")
     SHOW_LINES=$(jq -r '.show_lines // true' "$CONFIG_FILE")
     SHOW_VELOCITY=$(jq -r '.show_velocity // false' "$CONFIG_FILE")
+    SHOW_BREAKDOWN=$(jq -r '.show_breakdown // false' "$CONFIG_FILE")
     COMPACT_MODE=$(jq -r '.compact_mode // false' "$CONFIG_FILE")
     CONTEXT_LIMIT=$(jq -r '.context_limit // 200000' "$CONFIG_FILE")
+    SYSTEM_PROMPT_TOKENS=$(jq -r '.system_prompt_tokens // 2800' "$CONFIG_FILE")
+    SYSTEM_TOOLS_TOKENS=$(jq -r '.system_tools_tokens // 14500' "$CONFIG_FILE")
+    MCP_TOOLS_TOKENS=$(jq -r '.mcp_tools_tokens // 17600' "$CONFIG_FILE")
+    AUTOCOMPACT_BUFFER=$(jq -r '.autocompact_buffer // 45000' "$CONFIG_FILE")
 else
     # Defaults
     SHOW_CACHE=true
     SHOW_GIT=true
     SHOW_LINES=true
     SHOW_VELOCITY=false
+    SHOW_BREAKDOWN=false
     COMPACT_MODE=true
     CONTEXT_LIMIT=200000
+    # Exact values from /context output
+    SYSTEM_PROMPT_TOKENS=2800    # 1.4%
+    SYSTEM_TOOLS_TOKENS=14500    # 7.3%
+    MCP_TOOLS_TOKENS=17600       # 8.8%
+    AUTOCOMPACT_BUFFER=45000     # 22.5%
 fi
 
 # ============================================================================
@@ -47,6 +58,54 @@ format_tokens() {
     else
         echo "${tokens}"
     fi
+}
+
+# Get current context size from the last message (with caching)
+# This gives us the actual current context window usage for messages
+get_current_context_size() {
+    local transcript="$1"
+    local session_id="$2"
+    local context_cache="/tmp/.claude_statusline_context_${session_id}.cache"
+
+    if [ ! -f "$transcript" ]; then
+        echo "0"
+        return
+    fi
+
+    # Check if cache is valid (file hasn't been modified)
+    local file_mtime=$(stat -c %Y "$transcript" 2>/dev/null || stat -f %m "$transcript" 2>/dev/null)
+    if [ -f "$context_cache" ]; then
+        read -r cached_mtime cached_context < "$context_cache"
+        if [ "$cached_mtime" = "$file_mtime" ]; then
+            echo "$cached_context"
+            return
+        fi
+    fi
+
+    # Get the last assistant message's token usage using tac for efficiency
+    local last_msg=$(tac "$transcript" 2>/dev/null | grep -m1 '"type":"assistant"' || grep '"type":"assistant"' "$transcript" | tail -1)
+    if [ -z "$last_msg" ]; then
+        echo "0"
+        return
+    fi
+
+    # Extract tokens from the last message - use head -1 to get only first match
+    local input=$(echo "$last_msg" | grep -o '"input_tokens":[0-9]*' | head -1 | cut -d':' -f2)
+    local cache_read=$(echo "$last_msg" | grep -o '"cache_read_input_tokens":[0-9]*' | head -1 | cut -d':' -f2)
+    local cache_creation=$(echo "$last_msg" | grep -o '"cache_creation_input_tokens":[0-9]*' | head -1 | cut -d':' -f2)
+
+    # Default to 0 if empty
+    input=${input:-0}
+    cache_read=${cache_read:-0}
+    cache_creation=${cache_creation:-0}
+
+    # The current context is approximately: cache_read + cache_creation + input
+    local current_context=$((input + cache_read + cache_creation))
+
+    # Cache the result
+    echo "$file_mtime $current_context" > "$context_cache"
+
+    echo "$current_context"
 }
 
 # Get tokens incrementally (only parse new messages)
@@ -189,8 +248,11 @@ SESSION_ID=$(echo "$input" | jq -r '.session_id // ""')
 EXCEEDS_200K=$(echo "$input" | jq -r '.exceeds_200k_tokens // false')
 TRANSCRIPT_PATH=$(echo "$input" | jq -r '.transcript_path')
 
-# Get tokens incrementally
+# Get tokens incrementally (for historical display)
 read -r INPUT_TOKENS OUTPUT_TOKENS CACHE_READ CACHE_CREATION <<< $(get_tokens_incremental "$TRANSCRIPT_PATH" "$SESSION_ID")
+
+# Get current context size (for accurate context window calculation)
+CURRENT_CONTEXT_SIZE=$(get_current_context_size "$TRANSCRIPT_PATH" "$SESSION_ID")
 
 # Session timing
 CURRENT_TIME=$(date +%s)
@@ -264,14 +326,27 @@ if [ "$SHOW_GIT" = "true" ]; then
     fi
 fi
 
-# Context window calculation (only count fresh input + output, not cache tokens)
-CONTEXT_USED=$((INPUT_TOKENS + OUTPUT_TOKENS))
+# Context window calculation
+# CURRENT_CONTEXT_SIZE is from the last API call (cache_read + cache_creation + input)
+# This includes: system prompt, system tools, MCP tools, and messages
+
+# System overhead for breakdown display
+SYSTEM_OVERHEAD=$((SYSTEM_PROMPT_TOKENS + SYSTEM_TOOLS_TOKENS + MCP_TOOLS_TOKENS))
+
+# If no transcript data yet (fresh conversation), use system overhead as minimum
+if [ "$CURRENT_CONTEXT_SIZE" -eq 0 ] || [ "$CURRENT_CONTEXT_SIZE" -lt "$SYSTEM_OVERHEAD" ]; then
+    CURRENT_CONTEXT_SIZE=$SYSTEM_OVERHEAD
+fi
+
+# Add autocompact buffer to get total used context
+TOTAL_CONTEXT_USED=$((CURRENT_CONTEXT_SIZE + AUTOCOMPACT_BUFFER))
+
 if [ "$EXCEEDS_200K" = "true" ]; then
     CONTEXT_DISPLAY="🔴  COMPACTED"
 else
-    USED_PCT=$((CONTEXT_USED * 100 / CONTEXT_LIMIT))
+    USED_PCT=$((TOTAL_CONTEXT_USED * 100 / CONTEXT_LIMIT))
     REMAINING_PCT=$((100 - USED_PCT))
-    REMAINING_TOKENS=$((CONTEXT_LIMIT - CONTEXT_USED))
+    REMAINING_TOKENS=$((CONTEXT_LIMIT - TOTAL_CONTEXT_USED))
 
     # Icon based on remaining % (green, yellow, red circles)
     if [ "$REMAINING_PCT" -le 10 ]; then
@@ -284,10 +359,49 @@ else
 
     REMAINING_FMT=$(format_tokens $REMAINING_TOKENS)
     LIMIT_FMT=$(format_tokens $CONTEXT_LIMIT)
+
     if [ "$COMPACT_MODE" = "true" ]; then
         CONTEXT_DISPLAY="${ICON} ${REMAINING_FMT}/${LIMIT_FMT} (${REMAINING_PCT}%)"
     else
         CONTEXT_DISPLAY="${ICON}  Context: ${REMAINING_PCT}% (${REMAINING_FMT} left)"
+    fi
+
+    # Add breakdown if enabled
+    if [ "$SHOW_BREAKDOWN" = "true" ]; then
+        # Calculate total reserved (overhead + autocompact)
+        TOTAL_RESERVED=$((SYSTEM_OVERHEAD + AUTOCOMPACT_BUFFER))
+        TOTAL_RESERVED_FMT=$(format_tokens $TOTAL_RESERVED)
+
+        # Calculate messages (current context minus system overhead)
+        MESSAGE_TOKENS=$((CURRENT_CONTEXT_SIZE - SYSTEM_OVERHEAD))
+        if [ "$MESSAGE_TOKENS" -lt 0 ]; then
+            MESSAGE_TOKENS=0
+        fi
+        MESSAGE_FMT=$(format_tokens $MESSAGE_TOKENS)
+
+        # Calculate percentages (*1000 for one decimal precision)
+        TOTAL_RESERVED_PCT=$((TOTAL_RESERVED * 1000 / CONTEXT_LIMIT))
+        SYSTEM_PROMPT_PCT=$((SYSTEM_PROMPT_TOKENS * 1000 / CONTEXT_LIMIT))
+        SYSTEM_TOOLS_PCT=$((SYSTEM_TOOLS_TOKENS * 1000 / CONTEXT_LIMIT))
+        MCP_TOOLS_PCT=$((MCP_TOOLS_TOKENS * 1000 / CONTEXT_LIMIT))
+        AUTOCOMPACT_PCT=$((AUTOCOMPACT_BUFFER * 1000 / CONTEXT_LIMIT))
+        MESSAGE_PCT=$((MESSAGE_TOKENS * 1000 / CONTEXT_LIMIT))
+
+        # Format tokens
+        SYSTEM_PROMPT_FMT=$(format_tokens $SYSTEM_PROMPT_TOKENS)
+        SYSTEM_TOOLS_FMT=$(format_tokens $SYSTEM_TOOLS_TOKENS)
+        MCP_TOOLS_FMT=$(format_tokens $MCP_TOOLS_TOKENS)
+        AUTOCOMPACT_FMT=$(format_tokens $AUTOCOMPACT_BUFFER)
+
+        # Format percentages with one decimal
+        TOTAL_RESERVED_PCT_FMT="$((TOTAL_RESERVED_PCT / 10)).$((TOTAL_RESERVED_PCT % 10))%"
+        SYSTEM_PROMPT_PCT_FMT="$((SYSTEM_PROMPT_PCT / 10)).$((SYSTEM_PROMPT_PCT % 10))%"
+        SYSTEM_TOOLS_PCT_FMT="$((SYSTEM_TOOLS_PCT / 10)).$((SYSTEM_TOOLS_PCT % 10))%"
+        MCP_TOOLS_PCT_FMT="$((MCP_TOOLS_PCT / 10)).$((MCP_TOOLS_PCT % 10))%"
+        AUTOCOMPACT_PCT_FMT="$((AUTOCOMPACT_PCT / 10)).$((AUTOCOMPACT_PCT % 10))%"
+        MESSAGE_PCT_FMT="$((MESSAGE_PCT / 10)).$((MESSAGE_PCT % 10))%"
+
+        CONTEXT_DISPLAY="${CONTEXT_DISPLAY} | Total Reserved Context (${TOTAL_RESERVED_FMT} - ${TOTAL_RESERVED_PCT_FMT}) | System prompt (${SYSTEM_PROMPT_FMT} - ${SYSTEM_PROMPT_PCT_FMT}) | System tools (${SYSTEM_TOOLS_FMT} - ${SYSTEM_TOOLS_PCT_FMT}) | MCP tools (${MCP_TOOLS_FMT} - ${MCP_TOOLS_PCT_FMT}) | Autocompact buffer (${AUTOCOMPACT_FMT} - ${AUTOCOMPACT_PCT_FMT}) | Messages (${MESSAGE_FMT} - ${MESSAGE_PCT_FMT})"
     fi
 fi
 
