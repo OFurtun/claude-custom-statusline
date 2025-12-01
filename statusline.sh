@@ -372,6 +372,10 @@ else
         TOTAL_RESERVED=$((SYSTEM_OVERHEAD + AUTOCOMPACT_BUFFER))
         TOTAL_RESERVED_FMT=$(format_tokens $TOTAL_RESERVED)
 
+        # Calculate available context (limit - total reserved)
+        AVAILABLE_CONTEXT=$((CONTEXT_LIMIT - TOTAL_RESERVED))
+        AVAILABLE_CONTEXT_FMT=$(format_tokens $AVAILABLE_CONTEXT)
+
         # Calculate messages (current context minus system overhead)
         MESSAGE_TOKENS=$((CURRENT_CONTEXT_SIZE - SYSTEM_OVERHEAD))
         if [ "$MESSAGE_TOKENS" -lt 0 ]; then
@@ -380,6 +384,7 @@ else
         MESSAGE_FMT=$(format_tokens $MESSAGE_TOKENS)
 
         # Calculate percentages (*1000 for one decimal precision)
+        AVAILABLE_PCT=$((AVAILABLE_CONTEXT * 1000 / CONTEXT_LIMIT))
         TOTAL_RESERVED_PCT=$((TOTAL_RESERVED * 1000 / CONTEXT_LIMIT))
         SYSTEM_PROMPT_PCT=$((SYSTEM_PROMPT_TOKENS * 1000 / CONTEXT_LIMIT))
         SYSTEM_TOOLS_PCT=$((SYSTEM_TOOLS_TOKENS * 1000 / CONTEXT_LIMIT))
@@ -394,6 +399,7 @@ else
         AUTOCOMPACT_FMT=$(format_tokens $AUTOCOMPACT_BUFFER)
 
         # Format percentages with one decimal
+        AVAILABLE_PCT_FMT="$((AVAILABLE_PCT / 10)).$((AVAILABLE_PCT % 10))%"
         TOTAL_RESERVED_PCT_FMT="$((TOTAL_RESERVED_PCT / 10)).$((TOTAL_RESERVED_PCT % 10))%"
         SYSTEM_PROMPT_PCT_FMT="$((SYSTEM_PROMPT_PCT / 10)).$((SYSTEM_PROMPT_PCT % 10))%"
         SYSTEM_TOOLS_PCT_FMT="$((SYSTEM_TOOLS_PCT / 10)).$((SYSTEM_TOOLS_PCT % 10))%"
@@ -401,7 +407,7 @@ else
         AUTOCOMPACT_PCT_FMT="$((AUTOCOMPACT_PCT / 10)).$((AUTOCOMPACT_PCT % 10))%"
         MESSAGE_PCT_FMT="$((MESSAGE_PCT / 10)).$((MESSAGE_PCT % 10))%"
 
-        CONTEXT_DISPLAY="${CONTEXT_DISPLAY} | Total Reserved Context (${TOTAL_RESERVED_FMT} - ${TOTAL_RESERVED_PCT_FMT}) | System prompt (${SYSTEM_PROMPT_FMT} - ${SYSTEM_PROMPT_PCT_FMT}) | System tools (${SYSTEM_TOOLS_FMT} - ${SYSTEM_TOOLS_PCT_FMT}) | MCP tools (${MCP_TOOLS_FMT} - ${MCP_TOOLS_PCT_FMT}) | Autocompact buffer (${AUTOCOMPACT_FMT} - ${AUTOCOMPACT_PCT_FMT}) | Messages (${MESSAGE_FMT} - ${MESSAGE_PCT_FMT})"
+        CONTEXT_DISPLAY="${CONTEXT_DISPLAY} | Available context ${AVAILABLE_CONTEXT_FMT}/${LIMIT_FMT} (${AVAILABLE_PCT_FMT}) | 💬 Current usage (${MESSAGE_FMT}/${AVAILABLE_CONTEXT_FMT} - ${MESSAGE_PCT_FMT}) | 🔒 Total reserved (${TOTAL_RESERVED_FMT} - ${TOTAL_RESERVED_PCT_FMT}) = System prompt (${SYSTEM_PROMPT_FMT} - ${SYSTEM_PROMPT_PCT_FMT}) + System tools (${SYSTEM_TOOLS_FMT} - ${SYSTEM_TOOLS_PCT_FMT}) + MCP tools (${MCP_TOOLS_FMT} - ${MCP_TOOLS_PCT_FMT}) + Autocompact buffer (${AUTOCOMPACT_FMT} - ${AUTOCOMPACT_PCT_FMT})"
     fi
 fi
 
