@@ -23,7 +23,7 @@ if [ ! -d "$CLAUDE_DIR" ]; then
     exit 1
 fi
 
-echo -e "${BLUE}[1/5]${NC} Checking prerequisites..."
+echo -e "${BLUE}[1/6]${NC} Checking prerequisites..."
 
 # Check for jq
 if ! command -v jq &> /dev/null; then
@@ -41,7 +41,7 @@ if ! command -v jq &> /dev/null; then
 fi
 
 # Backup existing files if they exist
-echo -e "${BLUE}[2/5]${NC} Backing up existing files..."
+echo -e "${BLUE}[2/6]${NC} Backing up existing files..."
 BACKUP_DIR="$CLAUDE_DIR/statusline_backup_$(date +%Y%m%d_%H%M%S)"
 
 if [ -f "$CLAUDE_DIR/statusline.sh" ] || [ -f "$CLAUDE_DIR/statusline.config.json" ]; then
@@ -54,7 +54,7 @@ else
 fi
 
 # Install statusline files
-echo -e "${BLUE}[3/5]${NC} Installing statusline files..."
+echo -e "${BLUE}[3/6]${NC} Installing statusline files..."
 
 # Determine the source directory
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -74,7 +74,21 @@ chmod +x "$CLAUDE_DIR/statusline.sh"
 echo -e "${GREEN}✓${NC} Files installed successfully"
 
 # Update settings.json if needed
-echo -e "${BLUE}[4/5]${NC} Configuring Claude Code settings..."
+echo -e "${BLUE}[4/6]${NC} Installing slash commands..."
+COMMANDS_DIR="$CLAUDE_DIR/commands"
+mkdir -p "$COMMANDS_DIR"
+
+if [ -d "$SCRIPT_DIR/commands" ]; then
+    # Local installation
+    cp "$SCRIPT_DIR/commands/"*.md "$COMMANDS_DIR/" 2>/dev/null || true
+else
+    # Remote installation
+    curl -fsSL https://raw.githubusercontent.com/OFurtun/claude-custom-statusline/main/commands/statusline-breakdown.md -o "$COMMANDS_DIR/statusline-breakdown.md"
+    curl -fsSL https://raw.githubusercontent.com/OFurtun/claude-custom-statusline/main/commands/statusline-subscription.md -o "$COMMANDS_DIR/statusline-subscription.md"
+fi
+echo -e "${GREEN}✓${NC} Slash commands installed"
+
+echo -e "${BLUE}[5/6]${NC} Configuring Claude Code settings..."
 SETTINGS_FILE="$CLAUDE_DIR/settings.json"
 
 if [ -f "$SETTINGS_FILE" ]; then
@@ -116,7 +130,7 @@ else
 fi
 
 # Done
-echo -e "${BLUE}[5/5]${NC} Installation complete!"
+echo -e "${BLUE}[6/6]${NC} Installation complete!"
 echo ""
 echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}Installation Successful!${NC}"
@@ -130,7 +144,13 @@ echo "Configuration options:"
 echo "  - show_cache: Display cache read tokens"
 echo "  - show_git: Show git branch"
 echo "  - show_lines: Display lines changed"
+echo "  - show_breakdown: Show detailed context breakdown"
 echo "  - compact_mode: Use compact display format"
+echo "  - context_limit: 200000 (Pro) or 100000 (Max)"
+echo ""
+echo "Slash commands (restart Claude Code to use):"
+echo "  /statusline-breakdown    - Toggle context breakdown display"
+echo "  /statusline-subscription - Switch between Pro/Max subscription modes"
 echo ""
 echo "For more information, visit:"
 echo "  https://github.com/OFurtun/claude-custom-statusline"
