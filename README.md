@@ -9,7 +9,6 @@ An enhanced statusline for [Claude Code](https://code.claude.com) that displays 
 - **Context Window Visualization**: Color-coded indicator (🟢/🟡/🔴) showing remaining context space
 - **Accurate Context Tracking**: Reads actual context usage from API responses, accounts for system overhead
 - **Context Breakdown**: Optional detailed view showing system prompt, tools, MCP tools, and autocompact buffer usage
-- **Subscription Support**: Switch between Claude Max 5x (200K) and Max 20x (100K) context limits
 - **Git Integration**: Displays current branch with caching for performance
 - **Session Timer**: Tracks elapsed time since session start
 - **Lines Changed**: Shows lines added/removed during the session
@@ -99,7 +98,7 @@ Edit `~/.claude/statusline.config.json` to customize the display:
 | `show_velocity` | boolean | `false` | Show token velocity (tokens/min) |
 | `show_breakdown` | boolean | `false` | Show detailed context breakdown |
 | `compact_mode` | boolean | `true` | Use compact format with symbols |
-| `context_limit` | number | `200000` | Context window size (200000 for Max 5x, 100000 for Max 20x) |
+| `context_limit` | number | `200000` | Context window size |
 | `system_prompt_tokens` | number | `2800` | System prompt token overhead |
 | `system_tools_tokens` | number | `14500` | System tools token overhead |
 | `mcp_tools_tokens` | number | `17600` | MCP tools token overhead |
@@ -112,7 +111,6 @@ After installation, restart Claude Code to enable these commands:
 | Command | Description |
 |---------|-------------|
 | `/statusline-breakdown` | Toggle the detailed context breakdown display |
-| `/statusline-subscription` | Switch between Max 5x (200K) and Max 20x (100K) subscription modes |
 
 ## How It Works
 
@@ -132,7 +130,7 @@ The statusline accurately tracks context by reading `cache_read_input_tokens + c
 - MCP tools (~17.6K tokens)
 - Your conversation messages
 
-The autocompact buffer (~45K for Max 5x, ~22.5K for Max 20x) is reserved space for Claude's responses and is added to calculate true available context.
+The autocompact buffer (~45K) is reserved space for Claude's responses and is added to calculate true available context.
 
 ### Performance Features
 

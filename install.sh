@@ -84,7 +84,6 @@ if [ -d "$SCRIPT_DIR/commands" ]; then
 else
     # Remote installation
     curl -fsSL https://raw.githubusercontent.com/OFurtun/claude-custom-statusline/main/commands/statusline-breakdown.md -o "$COMMANDS_DIR/statusline-breakdown.md"
-    curl -fsSL https://raw.githubusercontent.com/OFurtun/claude-custom-statusline/main/commands/statusline-subscription.md -o "$COMMANDS_DIR/statusline-subscription.md"
 fi
 echo -e "${GREEN}✓${NC} Slash commands installed"
 
@@ -146,11 +145,10 @@ echo "  - show_git: Show git branch"
 echo "  - show_lines: Display lines changed"
 echo "  - show_breakdown: Show detailed context breakdown"
 echo "  - compact_mode: Use compact display format"
-echo "  - context_limit: 200000 (Max 5x) or 100000 (Max 20x)"
+echo "  - context_limit: 200000 (default)"
 echo ""
 echo "Slash commands (restart Claude Code to use):"
-echo "  /statusline-breakdown    - Toggle context breakdown display"
-echo "  /statusline-subscription - Switch between Max 5x/20x subscription modes"
+echo "  /statusline-breakdown - Toggle context breakdown display"
 echo ""
 echo "For more information, visit:"
 echo "  https://github.com/OFurtun/claude-custom-statusline"
