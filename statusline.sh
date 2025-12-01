@@ -360,13 +360,7 @@ else
     REMAINING_FMT=$(format_tokens $REMAINING_TOKENS)
     LIMIT_FMT=$(format_tokens $CONTEXT_LIMIT)
 
-    if [ "$COMPACT_MODE" = "true" ]; then
-        CONTEXT_DISPLAY="${ICON} ${REMAINING_FMT}/${LIMIT_FMT} (${REMAINING_PCT}%)"
-    else
-        CONTEXT_DISPLAY="${ICON}  Context: ${REMAINING_PCT}% (${REMAINING_FMT} left)"
-    fi
-
-    # Add breakdown if enabled
+    # Add breakdown if enabled - changes the display format
     if [ "$SHOW_BREAKDOWN" = "true" ]; then
         # Calculate total reserved (overhead + autocompact)
         TOTAL_RESERVED=$((SYSTEM_OVERHEAD + AUTOCOMPACT_BUFFER))
@@ -407,7 +401,13 @@ else
         AUTOCOMPACT_PCT_FMT="$((AUTOCOMPACT_PCT / 10)).$((AUTOCOMPACT_PCT % 10))%"
         MESSAGE_PCT_FMT="$((MESSAGE_PCT / 10)).$((MESSAGE_PCT % 10))%"
 
-        CONTEXT_DISPLAY="${CONTEXT_DISPLAY} | Available context ${AVAILABLE_CONTEXT_FMT}/${LIMIT_FMT} (${AVAILABLE_PCT_FMT}) | 💬 Current usage (${MESSAGE_FMT}/${AVAILABLE_CONTEXT_FMT} - ${MESSAGE_PCT_FMT}) | 🔒 Total reserved (${TOTAL_RESERVED_FMT} - ${TOTAL_RESERVED_PCT_FMT}) = System prompt (${SYSTEM_PROMPT_FMT} - ${SYSTEM_PROMPT_PCT_FMT}) + System tools (${SYSTEM_TOOLS_FMT} - ${SYSTEM_TOOLS_PCT_FMT}) + MCP tools (${MCP_TOOLS_FMT} - ${MCP_TOOLS_PCT_FMT}) + Autocompact buffer (${AUTOCOMPACT_FMT} - ${AUTOCOMPACT_PCT_FMT})"
+        CONTEXT_DISPLAY="${ICON} ${AVAILABLE_CONTEXT_FMT}/${LIMIT_FMT} (${AVAILABLE_PCT_FMT}) | 💬 Current usage (${MESSAGE_FMT}/${AVAILABLE_CONTEXT_FMT} - ${MESSAGE_PCT_FMT}) | 🔒 Total reserved (${TOTAL_RESERVED_FMT} - ${TOTAL_RESERVED_PCT_FMT}) = System prompt (${SYSTEM_PROMPT_FMT} - ${SYSTEM_PROMPT_PCT_FMT}) + System tools (${SYSTEM_TOOLS_FMT} - ${SYSTEM_TOOLS_PCT_FMT}) + MCP tools (${MCP_TOOLS_FMT} - ${MCP_TOOLS_PCT_FMT}) + Autocompact buffer (${AUTOCOMPACT_FMT} - ${AUTOCOMPACT_PCT_FMT})"
+    else
+        if [ "$COMPACT_MODE" = "true" ]; then
+            CONTEXT_DISPLAY="${ICON} ${REMAINING_FMT}/${LIMIT_FMT} (${REMAINING_PCT}%)"
+        else
+            CONTEXT_DISPLAY="${ICON}  Context: ${REMAINING_PCT}% (${REMAINING_FMT} left)"
+        fi
     fi
 fi
 
