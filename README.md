@@ -129,6 +129,16 @@ The statusline uses Claude Code's built-in `context_window` JSON data:
 
 The compaction buffer (default 33K) is subtracted from remaining context to show how much usable space you have before autocompaction triggers.
 
+### Context Status Colors
+
+The color indicator reflects remaining free context (after subtracting the compaction buffer):
+
+| Icon | Condition | Meaning |
+|------|-----------|---------|
+| 🟢 | > 25% free | Plenty of context remaining |
+| 🟡 | 11–25% free | Context getting low |
+| 🔴 | ≤ 10% free | Context nearly exhausted, autocompaction imminent |
+
 ### Performance Features
 
 - **Git Branch Caching**: Caches branch lookup per directory per session
