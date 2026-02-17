@@ -218,10 +218,10 @@ fi
 # Build token display
 INPUT_DISPLAY=$(format_tokens $INPUT_TOKENS)
 OUTPUT_DISPLAY=$(format_tokens $OUTPUT_TOKENS)
-if [ "$COMPACT_MODE" = "true" ]; then
-    TOKEN_DISPLAY="${INPUT_DISPLAY}↓ ${OUTPUT_DISPLAY}↑"
-else
+if [ "$SHOW_DETAILED" = "true" ]; then
     TOKEN_DISPLAY="Tokens ${INPUT_DISPLAY}↓ ${OUTPUT_DISPLAY}↑"
+else
+    TOKEN_DISPLAY="${INPUT_DISPLAY}↓ ${OUTPUT_DISPLAY}↑"
 fi
 
 # Token velocity (optional)
@@ -326,10 +326,10 @@ else
         DETAILED_DISPLAY=""
     fi
 
-    if [ "$COMPACT_MODE" = "true" ]; then
-        CONTEXT_DISPLAY="${ICON} ${FREE_FMT}/${LIMIT_FMT} (${FREE_PCT}%)"
-    else
+    if [ "$SHOW_DETAILED" = "true" ]; then
         CONTEXT_DISPLAY="${ICON} ${FREE_FMT}/${LIMIT_FMT} (${FREE_PCT}%) remaining"
+    else
+        CONTEXT_DISPLAY="${ICON} ${FREE_FMT}/${LIMIT_FMT} (${FREE_PCT}%)"
     fi
 fi # end context_window branches
 
