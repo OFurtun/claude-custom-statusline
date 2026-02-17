@@ -1,37 +1,38 @@
 # Furtun's Custom Statusline for Claude Code
 
-An enhanced statusline for [Claude Code](https://code.claude.com) that displays comprehensive session information including token usage, cache metrics, git branch, context window status, and more.
+An enhanced statusline for [Claude Code](https://code.claude.com) that displays comprehensive session information including token usage, cache metrics, git branch, repo info, context window status, and more.
 
 ## Features
 
-- **Token Tracking**: Real-time display of input/output tokens with efficient incremental parsing
+- **Token Tracking**: Real-time display of input/output tokens from Claude Code's native JSON data
 - **Cache Metrics**: Shows cache read tokens to monitor prompt caching efficiency
 - **Context Window Visualization**: Color-coded indicator (🟢/🟡/🔴) showing remaining context space
-- **Accurate Context Tracking**: Reads actual context usage from API responses, accounts for system overhead
-- **Context Breakdown**: Optional detailed view showing system prompt, tools, MCP tools, and autocompact buffer usage
+- **Context Breakdown**: Optional detailed view showing used context and autocompact buffer
 - **Git Integration**: Displays current branch with caching for performance
+- **Repo & Owner Display**: Shows repository owner/name from git remote origin URL
 - **Session Timer**: Tracks elapsed time since session start
 - **Lines Changed**: Shows lines added/removed during the session
+- **Token Velocity**: Optional tokens/minute tracking over a 5-minute window
 - **Slash Commands**: Built-in commands to toggle features without editing config
 - **Configurable Display**: Customize which features to show via JSON config
 - **Compact Mode**: Toggle between verbose and compact display formats
-- **Performance Optimized**: Uses incremental parsing and caching to minimize overhead
+- **Performance Optimized**: Uses caching for git branch, repo name, and owner lookups
 
 ## Preview
 
 Compact mode:
 ```
-[Opus 4.5] 📁 my-project | 🌿 main | 🕐 15m | 🪙 45.2K↓ 12.3K↑ | 💾 7.7M | 🟢 120K/200K (61%) | +234/-89
+[Opus 4.6] 📁 ~/Projects/my-project | 🔗 OFurtun/my-project | 🌿 main | 🕐 15m | 🪙 45.2K↓ 12.3K↑ | 💾 7.7M | 🟢 120K/200K (60%) | +234/-89
 ```
 
 With context breakdown enabled:
 ```
-🟢 120K/200K (61%) | Total Reserved Context (79K - 39.9%) | System prompt (2.8K - 1.4%) | System tools (14K - 7.2%) | MCP tools (17K - 8.8%) | Autocompact buffer (45K - 22.5%) | Messages (47K - 23.7%)
+🟢 120K/200K (60%) | 📊 used: 47K (23%) | 🔒 autocompact: 33K (~16%)
 ```
 
 Verbose mode:
 ```
-[Opus 4.5] 📁 my-project | 🌿 main | 🕐 Started 15m ago | 🪙 In: 45.2K | Out: 12.3K | Cache: 7.7M | 🟢 Context: 61% (120K left) | +234/-89
+[Opus 4.6] 📁 ~/Projects/my-project | 🔗 OFurtun/my-project | 🌿 main | 🕐 Started 15m ago | 🪙 In: 45.2K | Out: 12.3K | Cache: 7.7M | 🟢 120K/200K (60%) | +234/-89
 ```
 
 ## Installation
@@ -78,13 +79,9 @@ Edit `~/.claude/statusline.config.json` to customize the display:
   "show_git": true,
   "show_lines": true,
   "show_velocity": false,
-  "show_breakdown": true,
+  "show_breakdown": false,
   "compact_mode": true,
-  "context_limit": 200000,
-  "system_prompt_tokens": 2800,
-  "system_tools_tokens": 14500,
-  "mcp_tools_tokens": 17600,
-  "autocompact_buffer": 45000
+  "autocompact_buffer": 33000
 }
 ```
 
@@ -98,11 +95,7 @@ Edit `~/.claude/statusline.config.json` to customize the display:
 | `show_velocity` | boolean | `false` | Show token velocity (tokens/min) |
 | `show_breakdown` | boolean | `false` | Show detailed context breakdown |
 | `compact_mode` | boolean | `true` | Use compact format with symbols |
-| `context_limit` | number | `200000` | Context window size |
-| `system_prompt_tokens` | number | `2800` | System prompt token overhead |
-| `system_tools_tokens` | number | `14500` | System tools token overhead |
-| `mcp_tools_tokens` | number | `17600` | MCP tools token overhead |
-| `autocompact_buffer` | number | `45000` | Autocompact buffer reservation |
+| `autocompact_buffer` | number | `33000` | Reserved tokens for autocompact buffer |
 
 ## Slash Commands
 
@@ -115,29 +108,26 @@ After installation, restart Claude Code to enable these commands:
 ## How It Works
 
 The statusline script:
-1. Receives JSON input from Claude Code with session metadata
-2. Reads actual context usage from the last API response in the transcript
-3. Accounts for system overhead (system prompt, tools, MCP tools, autocompact buffer)
-4. Caches results to avoid re-parsing on every update
+1. Receives JSON input from Claude Code with session metadata and context window data
+2. Reads token usage and context percentage directly from Claude Code's native JSON fields
+3. Subtracts the autocompact buffer to calculate usable remaining context
+4. Resolves repo owner and name from the git remote origin URL
 5. Formats the data according to your configuration
 6. Returns a single-line status string
 
 ### Context Tracking
 
-The statusline accurately tracks context by reading `cache_read_input_tokens + cache_creation_input_tokens + input_tokens` from the transcript. This represents the actual context sent to the API, which includes:
-- System prompt (~2.8K tokens)
-- System tools (~14.5K tokens)
-- MCP tools (~17.6K tokens)
-- Your conversation messages
+The statusline uses Claude Code's built-in `context_window` JSON data:
+- `context_window.used_percentage` — percentage of context window used
+- `context_window.context_window_size` — total context window size
+- `context_window.total_input_tokens` / `total_output_tokens` — cumulative token counts
 
-The autocompact buffer (~45K) is reserved space for Claude's responses and is added to calculate true available context.
+The autocompact buffer (default 33K) is subtracted from remaining context to show how much usable space you have before autocompaction triggers.
 
 ### Performance Features
 
-- **Cached Context Parsing**: Only re-parses transcript when file changes (checks mtime)
-- **Efficient File Reading**: Uses `tac | grep -m1` to find last message quickly
-- **Incremental Token Parsing**: Only parses new messages since last check
-- **Git Branch Caching**: Caches branch lookup per directory
+- **Git Branch Caching**: Caches branch lookup per directory per session
+- **Repo Name/Owner Caching**: Caches remote origin parsing per directory per session
 - **Session State Persistence**: Maintains session start time across updates
 - **Automatic Cleanup**: Removes stale cache files older than 1 day
 
@@ -148,21 +138,24 @@ The autocompact buffer (~45K) is reserved space for Claude's responses and is ad
 - Check that `~/.claude/statusline.sh` is executable: `chmod +x ~/.claude/statusline.sh`
 - Restart Claude Code
 
-### Incorrect token counts
-- The script parses the transcript file incrementally
-- If counts seem wrong, remove cache files: `rm /tmp/.claude_statusline_tokens_*.cache`
+### Context showing ⏳
+- This means Claude Code hasn't provided context data yet — it appears on the first prompt before any API response
 
 ### Git branch not showing
 - Ensure you're in a git repository
 - Check that git commands work: `git branch --show-current`
-- Try toggling `show_git` to `false` and back to `true`
+- Try clearing the cache: `rm /tmp/.claude_statusline_git_*.cache`
+
+### Repo owner/name not showing
+- Ensure the repo has a remote origin: `git remote get-url origin`
+- The owner is parsed from the remote URL (supports both SSH and HTTPS formats)
 
 ## Requirements
 
 - Claude Code (latest version recommended)
 - Bash 4.0 or higher
 - `jq` for JSON parsing
-- `git` (optional, for git branch display)
+- `git` (optional, for git branch and repo display)
 
 ## Contributing
 
