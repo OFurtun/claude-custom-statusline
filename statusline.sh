@@ -222,8 +222,8 @@ else
     TOKEN_DISPLAY="In: ${INPUT_DISPLAY} | Out: ${OUTPUT_DISPLAY}"
 fi
 
-# Add cache if enabled and present
-if [ "$SHOW_CACHE" = "true" ] && [ "$CACHE_READ" -gt 0 ]; then
+# Add cache if enabled and present (only in breakdown mode)
+if [ "$SHOW_CACHE" = "true" ] && [ "$SHOW_BREAKDOWN" = "true" ] && [ "$CACHE_READ" -gt 0 ]; then
     CACHE_DISPLAY=$(format_tokens $CACHE_READ)
     if [ "$COMPACT_MODE" = "true" ]; then
         TOKEN_DISPLAY="${TOKEN_DISPLAY} | 💾 ${CACHE_DISPLAY}"
