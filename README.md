@@ -7,14 +7,13 @@ An enhanced statusline for [Claude Code](https://code.claude.com) that displays 
 - **Token Tracking**: Real-time display of input/output tokens with arrow indicators (↓/↑)
 - **Session Cost**: Live dollar cost of the current session
 - **Context Window Visualization**: Color-coded indicator (🟢/🟡/🔴) showing remaining context space
-- **Detailed Mode**: Optional expanded view with context usage, compaction buffer, cache read/write stats, and lines changed
+- **Detailed Mode**: Toggle expanded view with descriptors, context usage, compaction buffer, cache read/write stats, lines changed, and session start time
 - **Git Integration**: Displays current branch with caching for performance
 - **Repo & Owner Display**: Shows repository owner/name parsed from git remote origin URL
 - **Session Timer**: Tracks elapsed time since session start
 - **Token Velocity**: Optional tokens/minute tracking over a 5-minute window
 - **Slash Commands**: Built-in commands to toggle features without editing config
 - **Configurable Display**: Customize which features to show via JSON config
-- **Compact Mode**: Toggle between verbose and compact display formats
 - **Performance Optimized**: Uses caching for git branch, repo name, and owner lookups
 
 ## Preview
@@ -114,10 +113,10 @@ The statusline script:
 The statusline follows a consistent block order in both normal and detailed modes:
 
 ```
-[Model] 📁 path | 🔗 owner/repo | 🌿 branch | 🟢 context remaining | 🕐 time | 🪙 tokens | 💲cost | (detailed extras...)
+[Model] 📁 path | 🔗 owner/repo | 🌿 branch | 🟢 context | 🕐 time | 🪙 tokens | 💲cost
 ```
 
-Detailed mode appends extra sections at the end without changing the position of core blocks.
+Detailed mode adds descriptors to core blocks and appends extra sections at the end without changing block positions.
 
 ### Context Tracking
 
