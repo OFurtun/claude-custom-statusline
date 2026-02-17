@@ -219,9 +219,9 @@ fi
 INPUT_DISPLAY=$(format_tokens $INPUT_TOKENS)
 OUTPUT_DISPLAY=$(format_tokens $OUTPUT_TOKENS)
 if [ "$COMPACT_MODE" = "true" ]; then
-    TOKEN_DISPLAY="Tokens ${INPUT_DISPLAY}↓ ${OUTPUT_DISPLAY}↑"
+    TOKEN_DISPLAY="${INPUT_DISPLAY}↓ ${OUTPUT_DISPLAY}↑"
 else
-    TOKEN_DISPLAY="In: ${INPUT_DISPLAY} | Out: ${OUTPUT_DISPLAY}"
+    TOKEN_DISPLAY="Tokens ${INPUT_DISPLAY}↓ ${OUTPUT_DISPLAY}↑"
 fi
 
 # Token velocity (optional)
@@ -326,7 +326,11 @@ else
         DETAILED_DISPLAY=""
     fi
 
-    CONTEXT_DISPLAY="${ICON} ${FREE_FMT}/${LIMIT_FMT} (${FREE_PCT}%) remaining"
+    if [ "$COMPACT_MODE" = "true" ]; then
+        CONTEXT_DISPLAY="${ICON} ${FREE_FMT}/${LIMIT_FMT} (${FREE_PCT}%)"
+    else
+        CONTEXT_DISPLAY="${ICON} ${FREE_FMT}/${LIMIT_FMT} (${FREE_PCT}%) remaining"
+    fi
 fi # end context_window branches
 
 # Session cost display

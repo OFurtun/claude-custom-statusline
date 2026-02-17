@@ -19,14 +19,19 @@ An enhanced statusline for [Claude Code](https://code.claude.com) that displays 
 
 ## Preview
 
-Normal mode:
+Compact mode (default):
 ```
-[Opus 4.6] 📁 ~/Projects/my-project | 🔗 OFurtun/my-project | 🌿 main | 🟢 120K/200K (60%) remaining | 🕐 15m | 🪙 Tokens 45K↓ 12K↑ | 💲0.42
+[Opus 4.6] 📁 ~/Projects/my-project | 🔗 OFurtun/my-project | 🌿 main | 🟢 120K/200K (60%) | 🕐 15m | 🪙 45K↓ 12K↑ | 💲0.42
 ```
 
-Detailed mode:
+Compact + detailed mode:
 ```
-[Opus 4.6] 📁 ~/Projects/my-project | 🔗 OFurtun/my-project | 🌿 main | 🟢 120K/200K (60%) remaining | 🕐 Started 15m ago | 🪙 Tokens 45K↓ 12K↑ | 💲0.42 | 📊 Used: 47K (23%) | 🔒 Compaction Buffer: 33K (~16%) | 💾 Cache Read: 7.7M | Cache Write: 1.2K | ✏️ Total Lines +234/-89
+[Opus 4.6] 📁 ~/Projects/my-project | 🔗 OFurtun/my-project | 🌿 main | 🟢 120K/200K (60%) | 🕐 Started 15m ago | 🪙 45K↓ 12K↑ | 💲0.42 | 📊 Used: 47K (23%) | 🔒 Compaction Buffer: 33K (~16%) | 💾 Cache Read: 7.7M | Cache Write: 1.2K | ✏️ Total Lines +234/-89
+```
+
+Verbose mode:
+```
+[Opus 4.6] 📁 ~/Projects/my-project | 🔗 OFurtun/my-project | 🌿 main | 🟢 120K/200K (60%) remaining | 🕐 15m | 🪙 Tokens 45K↓ 12K↑ | 💲0.42
 ```
 
 ## Installation
