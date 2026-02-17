@@ -187,6 +187,8 @@ EXCEEDS_200K=$(echo "$input" | jq -r '.exceeds_200k_tokens // false')
 INPUT_TOKENS=$(echo "$input" | jq -r '.context_window.total_input_tokens // 0')
 OUTPUT_TOKENS=$(echo "$input" | jq -r '.context_window.total_output_tokens // 0')
 CACHE_READ=$(echo "$input" | jq -r '.context_window.current_usage.cache_read_input_tokens // 0')
+CACHE_CREATION=$(echo "$input" | jq -r '.context_window.current_usage.cache_creation_input_tokens // 0')
+SESSION_COST=$(echo "$input" | jq -r '.cost.total_cost // 0')
 
 # Session timing
 CURRENT_TIME=$(date +%s)
@@ -217,19 +219,9 @@ fi
 INPUT_DISPLAY=$(format_tokens $INPUT_TOKENS)
 OUTPUT_DISPLAY=$(format_tokens $OUTPUT_TOKENS)
 if [ "$COMPACT_MODE" = "true" ]; then
-    TOKEN_DISPLAY="tokens: ${INPUT_DISPLAY}↓ ${OUTPUT_DISPLAY}↑"
+    TOKEN_DISPLAY="Tokens ${INPUT_DISPLAY}↓ ${OUTPUT_DISPLAY}↑"
 else
     TOKEN_DISPLAY="In: ${INPUT_DISPLAY} | Out: ${OUTPUT_DISPLAY}"
-fi
-
-# Add cache if enabled and present (only in detailed mode)
-if [ "$SHOW_CACHE" = "true" ] && [ "$SHOW_DETAILED" = "true" ] && [ "$CACHE_READ" -gt 0 ]; then
-    CACHE_DISPLAY=$(format_tokens $CACHE_READ)
-    if [ "$COMPACT_MODE" = "true" ]; then
-        TOKEN_DISPLAY="${TOKEN_DISPLAY} | 💾 prompt cache: ${CACHE_DISPLAY}"
-    else
-        TOKEN_DISPLAY="${TOKEN_DISPLAY} | Cache: ${CACHE_DISPLAY}"
-    fi
 fi
 
 # Token velocity (optional)
@@ -313,14 +305,21 @@ else
         AUTOCOMPACT_FMT=$(format_tokens $AUTOCOMPACT_BUFFER)
         AUTOCOMPACT_PCT=$((AUTOCOMPACT_BUFFER * 100 / CONTEXT_SIZE))
 
-        DETAILED_DISPLAY=" | 📊 used: ${USED_FMT} (${USED_PCT}%) | 🔒 compaction buffer: ${AUTOCOMPACT_FMT} (~${AUTOCOMPACT_PCT}%)"
+        DETAILED_DISPLAY=" | 📊 Used: ${USED_FMT} (${USED_PCT}%) | 🔒 Compaction Buffer: ${AUTOCOMPACT_FMT} (~${AUTOCOMPACT_PCT}%)"
+
+        # Cache statistics (only shown in detailed mode)
+        if [ "$SHOW_CACHE" = "true" ]; then
+            CACHE_READ_FMT=$(format_tokens $CACHE_READ)
+            CACHE_CREATION_FMT=$(format_tokens $CACHE_CREATION)
+            DETAILED_DISPLAY="${DETAILED_DISPLAY} | 💾 Cache Read: ${CACHE_READ_FMT} | Cache Write: ${CACHE_CREATION_FMT}"
+        fi
 
         # Lines changed (only shown in detailed mode)
         if [ "$SHOW_LINES" = "true" ]; then
             LINES_ADDED=$(echo "$input" | jq -r '.cost.total_lines_added // 0')
             LINES_REMOVED=$(echo "$input" | jq -r '.cost.total_lines_removed // 0')
             if [ "$LINES_ADDED" -gt 0 ] || [ "$LINES_REMOVED" -gt 0 ]; then
-                DETAILED_DISPLAY="${DETAILED_DISPLAY} | total lines +${LINES_ADDED}/-${LINES_REMOVED}"
+                DETAILED_DISPLAY="${DETAILED_DISPLAY} | ✏️ Total Lines +${LINES_ADDED}/-${LINES_REMOVED}"
             fi
         fi
     else
@@ -330,11 +329,24 @@ else
     CONTEXT_DISPLAY="${ICON} ${FREE_FMT}/${LIMIT_FMT} (${FREE_PCT}%) remaining"
 fi # end context_window branches
 
+# Session cost display
+COST_DISPLAY=""
+if [ "$SESSION_COST" != "0" ] && [ "$SESSION_COST" != "null" ] && [ -n "$SESSION_COST" ]; then
+    COST_DISPLAY=" | 💲${SESSION_COST}"
+fi
+
+# Build session time display
+if [ "$SHOW_DETAILED" = "true" ]; then
+    TIME_DISPLAY="🕐 Started ${SESSION_TIME} ago"
+else
+    TIME_DISPLAY="🕐 ${SESSION_TIME}"
+fi
+
 # Build final status line
 if [ "$COMPACT_MODE" = "true" ]; then
-    STATUS_LINE="[$MODEL_DISPLAY] 📁 ${LOCATION_DISPLAY}$GIT_DISPLAY | ${CONTEXT_DISPLAY} | 🕐 session: ${SESSION_TIME} | 🪙 ${TOKEN_DISPLAY}${VELOCITY_DISPLAY}${DETAILED_DISPLAY}"
+    STATUS_LINE="[$MODEL_DISPLAY] 📁 ${LOCATION_DISPLAY}$GIT_DISPLAY | ${CONTEXT_DISPLAY} | ${TIME_DISPLAY} | 🪙 ${TOKEN_DISPLAY}${VELOCITY_DISPLAY}${COST_DISPLAY}${DETAILED_DISPLAY}"
 else
-    STATUS_LINE="[$MODEL_DISPLAY] 📁  ${LOCATION_DISPLAY}$GIT_DISPLAY | ${CONTEXT_DISPLAY} | 🕐  session: $SESSION_TIME ago | 🪙 ${TOKEN_DISPLAY}${VELOCITY_DISPLAY}${DETAILED_DISPLAY}"
+    STATUS_LINE="[$MODEL_DISPLAY] 📁  ${LOCATION_DISPLAY}$GIT_DISPLAY | ${CONTEXT_DISPLAY} | ${TIME_DISPLAY} | 🪙 ${TOKEN_DISPLAY}${VELOCITY_DISPLAY}${COST_DISPLAY}${DETAILED_DISPLAY}"
 fi
 
 # Cleanup old session files
