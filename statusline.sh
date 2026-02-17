@@ -312,27 +312,28 @@ else
         USED_FMT=$(format_tokens $USED_TOKENS)
         AUTOCOMPACT_FMT=$(format_tokens $AUTOCOMPACT_BUFFER)
         AUTOCOMPACT_PCT=$((AUTOCOMPACT_BUFFER * 100 / CONTEXT_SIZE))
-        CONTEXT_DISPLAY="${ICON} ${FREE_FMT}/${LIMIT_FMT} (${FREE_PCT}%) | 📊 used: ${USED_FMT} (${USED_PCT}%) | 🔒 autocompact: ${AUTOCOMPACT_FMT} (~${AUTOCOMPACT_PCT}%)"
+
+        # Lines changed (only shown in breakdown mode)
+        LINES_DISPLAY=""
+        if [ "$SHOW_LINES" = "true" ]; then
+            LINES_ADDED=$(echo "$input" | jq -r '.cost.total_lines_added // 0')
+            LINES_REMOVED=$(echo "$input" | jq -r '.cost.total_lines_removed // 0')
+            if [ "$LINES_ADDED" -gt 0 ] || [ "$LINES_REMOVED" -gt 0 ]; then
+                LINES_DISPLAY=" | +${LINES_ADDED}/-${LINES_REMOVED}"
+            fi
+        fi
+
+        CONTEXT_DISPLAY="${ICON} ${FREE_FMT}/${LIMIT_FMT} (${FREE_PCT}%) | 📊 used: ${USED_FMT} (${USED_PCT}%) | 🔒 autocompact: ${AUTOCOMPACT_FMT} (~${AUTOCOMPACT_PCT}%)${LINES_DISPLAY}"
     else
         CONTEXT_DISPLAY="${ICON} ${FREE_FMT}/${LIMIT_FMT} (${FREE_PCT}%)"
     fi
 fi # end context_window branches
 
-# Lines changed (if enabled)
-LINES_DISPLAY=""
-if [ "$SHOW_LINES" = "true" ]; then
-    LINES_ADDED=$(echo "$input" | jq -r '.cost.total_lines_added // 0')
-    LINES_REMOVED=$(echo "$input" | jq -r '.cost.total_lines_removed // 0')
-    if [ "$LINES_ADDED" -gt 0 ] || [ "$LINES_REMOVED" -gt 0 ]; then
-        LINES_DISPLAY=" | +${LINES_ADDED}/-${LINES_REMOVED}"
-    fi
-fi
-
 # Build final status line
 if [ "$COMPACT_MODE" = "true" ]; then
-    STATUS_LINE="[$MODEL_DISPLAY] 📁 ${LOCATION_DISPLAY}$GIT_DISPLAY | 🕐 ${SESSION_TIME} | 🪙  ${TOKEN_DISPLAY}${VELOCITY_DISPLAY} | ${CONTEXT_DISPLAY}${LINES_DISPLAY}"
+    STATUS_LINE="[$MODEL_DISPLAY] 📁 ${LOCATION_DISPLAY}$GIT_DISPLAY | ${CONTEXT_DISPLAY} | 🪙  ${TOKEN_DISPLAY}${VELOCITY_DISPLAY} | 🕐 ${SESSION_TIME}"
 else
-    STATUS_LINE="[$MODEL_DISPLAY] 📁  ${LOCATION_DISPLAY}$GIT_DISPLAY | 🕐  Started $SESSION_TIME ago | 🪙  ${TOKEN_DISPLAY}${VELOCITY_DISPLAY} | ${CONTEXT_DISPLAY}${LINES_DISPLAY}"
+    STATUS_LINE="[$MODEL_DISPLAY] 📁  ${LOCATION_DISPLAY}$GIT_DISPLAY | ${CONTEXT_DISPLAY} | 🪙  ${TOKEN_DISPLAY}${VELOCITY_DISPLAY} | 🕐  Started $SESSION_TIME ago"
 fi
 
 # Cleanup old session files
