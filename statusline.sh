@@ -336,7 +336,11 @@ fi # end context_window branches
 # Session cost display
 COST_DISPLAY=""
 if [ "$SESSION_COST" != "0" ] && [ "$SESSION_COST" != "null" ] && [ -n "$SESSION_COST" ]; then
-    COST_DISPLAY=" | 💲${SESSION_COST}"
+    if [ "$SHOW_DETAILED" = "true" ]; then
+        COST_DISPLAY=" | 💲 Session Cost: ${SESSION_COST}"
+    else
+        COST_DISPLAY=" | 💲 ${SESSION_COST}"
+    fi
 fi
 
 # Build session time display
