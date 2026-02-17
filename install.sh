@@ -10,6 +10,8 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
+SIGNATURE="# Furtun's Custom Statusline"
+
 echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}Furtun's Custom Statusline Installer${NC}"
 echo -e "${BLUE}========================================${NC}"
@@ -25,23 +27,57 @@ fi
 
 echo -e "${BLUE}[1/6]${NC} Checking prerequisites..."
 
-# Check for jq
+# Check for jq (required)
 if ! command -v jq &> /dev/null; then
-    echo -e "${YELLOW}Warning: 'jq' is not installed. The statusline requires jq to function.${NC}"
+    echo -e "${RED}Error: 'jq' is required but not installed.${NC}"
     echo "Please install jq:"
     echo "  - Ubuntu/Debian: sudo apt-get install jq"
     echo "  - macOS: brew install jq"
     echo "  - Fedora: sudo dnf install jq"
-    echo ""
-    read -p "Continue anyway? (y/N) " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        exit 1
+    exit 1
+fi
+echo -e "${GREEN}✓${NC} Prerequisites met"
+
+# ── Step 2: Detect existing statusline and prompt before overwriting ──
+echo -e "${BLUE}[2/6]${NC} Checking for existing installation..."
+
+IS_UPGRADE=false
+STATUSLINE_FILE="$CLAUDE_DIR/statusline.sh"
+
+if [ -f "$STATUSLINE_FILE" ]; then
+    if grep -q "$SIGNATURE" "$STATUSLINE_FILE"; then
+        IS_UPGRADE=true
+        echo -e "${GREEN}✓${NC} Existing Furtun's Custom Statusline detected — upgrading to latest version"
+    else
+        echo -e "${YELLOW}Warning: A custom statusline already exists at $STATUSLINE_FILE${NC}"
+        echo "  It does not appear to be Furtun's Custom Statusline."
+        read -p "  Replace it? (y/N) " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo -e "${RED}Installation aborted.${NC}"
+            exit 1
+        fi
     fi
 fi
 
-# Backup existing files if they exist
-echo -e "${BLUE}[2/6]${NC} Backing up existing files..."
+# Check if settings.json points to a different statusline script
+SETTINGS_FILE="$CLAUDE_DIR/settings.json"
+if [ -f "$SETTINGS_FILE" ]; then
+    EXISTING_CMD=$(jq -r '.statusline.command // empty' "$SETTINGS_FILE" 2>/dev/null)
+    if [ -n "$EXISTING_CMD" ] && [[ "$EXISTING_CMD" != *"statusline.sh"* ]]; then
+        echo -e "${YELLOW}Warning: settings.json statusline command points to a different script:${NC}"
+        echo "  $EXISTING_CMD"
+        read -p "  Overwrite with Furtun's statusline? (y/N) " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo -e "${RED}Installation aborted.${NC}"
+            exit 1
+        fi
+    fi
+fi
+
+# ── Step 3: Backup existing files ──
+echo -e "${BLUE}[3/6]${NC} Backing up existing files..."
 BACKUP_DIR="$CLAUDE_DIR/statusline_backup_$(date +%Y%m%d_%H%M%S)"
 
 if [ -f "$CLAUDE_DIR/statusline.sh" ] || [ -f "$CLAUDE_DIR/statusline.config.json" ]; then
@@ -53,83 +89,93 @@ else
     echo -e "${GREEN}✓${NC} No existing files to backup"
 fi
 
-# Install statusline files
-echo -e "${BLUE}[3/6]${NC} Installing statusline files..."
+# ── Step 4: Install statusline files ──
+echo -e "${BLUE}[4/6]${NC} Installing statusline files..."
 
-# Determine the source directory
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
+# Install statusline.sh
 if [ -f "$SCRIPT_DIR/statusline.sh" ]; then
-    # Local installation
     cp "$SCRIPT_DIR/statusline.sh" "$CLAUDE_DIR/statusline.sh"
-    cp "$SCRIPT_DIR/statusline.config.json" "$CLAUDE_DIR/statusline.config.json"
 else
-    # Remote installation
     echo "Downloading from GitHub..."
     curl -fsSL https://raw.githubusercontent.com/OFurtun/claude-custom-statusline/main/statusline.sh -o "$CLAUDE_DIR/statusline.sh"
-    curl -fsSL https://raw.githubusercontent.com/OFurtun/claude-custom-statusline/main/statusline.config.json -o "$CLAUDE_DIR/statusline.config.json"
+fi
+chmod +x "$CLAUDE_DIR/statusline.sh"
+
+# Install / merge config
+CONFIG_FILE="$CLAUDE_DIR/statusline.config.json"
+if [ -f "$SCRIPT_DIR/statusline.config.json" ]; then
+    NEW_DEFAULTS="$SCRIPT_DIR/statusline.config.json"
+else
+    NEW_DEFAULTS=$(mktemp)
+    curl -fsSL https://raw.githubusercontent.com/OFurtun/claude-custom-statusline/main/statusline.config.json -o "$NEW_DEFAULTS"
 fi
 
-chmod +x "$CLAUDE_DIR/statusline.sh"
-echo -e "${GREEN}✓${NC} Files installed successfully"
+if [ -f "$CONFIG_FILE" ] && [ "$IS_UPGRADE" = true ]; then
+    # Merge: new defaults as base, user values overlay, then filter to only valid keys
+    VALID_KEYS=$(jq -r 'keys[]' "$NEW_DEFAULTS")
+    MERGED=$(jq -s '.[0] * .[1]' "$NEW_DEFAULTS" "$CONFIG_FILE")
+    FILTERED=$(echo "$MERGED" | jq --argjson valid "$(jq 'keys' "$NEW_DEFAULTS")" 'with_entries(select(.key as $k | $valid | index($k)))')
 
-# Update settings.json if needed
-echo -e "${BLUE}[4/6]${NC} Installing slash commands..."
+    # Report changes
+    ADDED_KEYS=$(jq -r --argjson user "$(jq 'keys' "$CONFIG_FILE")" 'keys | map(select(. as $k | $user | index($k) | not)) | .[]' "$NEW_DEFAULTS")
+    REMOVED_KEYS=$(jq -r --argjson valid "$(jq 'keys' "$NEW_DEFAULTS")" 'keys | map(select(. as $k | $valid | index($k) | not)) | .[]' "$CONFIG_FILE")
+
+    if [ -n "$ADDED_KEYS" ]; then
+        echo -e "${GREEN}  New config keys added:${NC}"
+        for key in $ADDED_KEYS; do
+            DEFAULT_VAL=$(jq -r --arg k "$key" '.[$k]' "$NEW_DEFAULTS")
+            echo "    + $key = $DEFAULT_VAL"
+        done
+    fi
+    if [ -n "$REMOVED_KEYS" ]; then
+        echo -e "${YELLOW}  Obsolete config keys removed:${NC}"
+        for key in $REMOVED_KEYS; do
+            echo "    - $key"
+        done
+    fi
+
+    echo "$FILTERED" | jq '.' > "$CONFIG_FILE"
+    echo -e "${GREEN}✓${NC} Config merged (user values preserved, defaults updated)"
+else
+    cp "$NEW_DEFAULTS" "$CONFIG_FILE"
+    echo -e "${GREEN}✓${NC} Default config installed"
+fi
+
+# Clean up temp file if we downloaded it
+if [ ! -f "$SCRIPT_DIR/statusline.config.json" ] && [ -f "$NEW_DEFAULTS" ]; then
+    rm -f "$NEW_DEFAULTS"
+fi
+
+echo -e "${GREEN}✓${NC} Statusline files installed"
+
+# ── Step 5: Install slash commands ──
+echo -e "${BLUE}[5/6]${NC} Installing slash commands..."
 COMMANDS_DIR="$CLAUDE_DIR/commands"
 mkdir -p "$COMMANDS_DIR"
 
 if [ -d "$SCRIPT_DIR/commands" ]; then
-    # Local installation
     cp "$SCRIPT_DIR/commands/"*.md "$COMMANDS_DIR/" 2>/dev/null || true
 else
-    # Remote installation
-    curl -fsSL https://raw.githubusercontent.com/OFurtun/claude-custom-statusline/main/commands/statusline-breakdown.md -o "$COMMANDS_DIR/statusline-breakdown.md"
+    curl -fsSL https://raw.githubusercontent.com/OFurtun/claude-custom-statusline/main/commands/statusline-detailed.md -o "$COMMANDS_DIR/statusline-detailed.md"
 fi
 echo -e "${GREEN}✓${NC} Slash commands installed"
 
-echo -e "${BLUE}[5/6]${NC} Configuring Claude Code settings..."
-SETTINGS_FILE="$CLAUDE_DIR/settings.json"
+# ── Step 6: Configure settings.json with jq ──
+echo -e "${BLUE}[6/6]${NC} Configuring Claude Code settings..."
 
 if [ -f "$SETTINGS_FILE" ]; then
-    # Check if statusline is already enabled
-    if grep -q '"statusline"' "$SETTINGS_FILE"; then
-        if grep -q '"enabled".*true' "$SETTINGS_FILE"; then
-            echo -e "${GREEN}✓${NC} Statusline already enabled in settings"
-        else
-            echo -e "${YELLOW}Note: Statusline exists but may not be enabled. Please check $SETTINGS_FILE${NC}"
-        fi
-    else
-        # Add statusline config
-        echo -e "${YELLOW}Adding statusline configuration to settings.json...${NC}"
-        # Create backup of settings
-        cp "$SETTINGS_FILE" "$SETTINGS_FILE.bak"
-
-        # Add statusline config (simple approach - append before closing brace)
-        if [ -s "$SETTINGS_FILE" ]; then
-            # File has content
-            if grep -q "^{$" "$SETTINGS_FILE" && grep -q "^}$" "$SETTINGS_FILE"; then
-                # Simple JSON structure
-                sed -i 's/^}$/,\n  "statusline": {\n    "enabled": true\n  }\n}/' "$SETTINGS_FILE"
-                echo -e "${GREEN}✓${NC} Statusline enabled in settings"
-            else
-                echo -e "${YELLOW}Warning: Could not automatically update settings.json${NC}"
-                echo "Please manually add to $SETTINGS_FILE:"
-                echo '  "statusline": { "enabled": true }'
-            fi
-        fi
-    fi
+    # Use jq to ensure statusline.enabled = true
+    UPDATED=$(jq '.statusline.enabled = true' "$SETTINGS_FILE")
+    echo "$UPDATED" > "$SETTINGS_FILE"
+    echo -e "${GREEN}✓${NC} Statusline enabled in settings"
 else
-    # Create new settings file
-    echo '{
-  "statusline": {
-    "enabled": true
-  }
-}' > "$SETTINGS_FILE"
+    jq -n '{"statusline": {"enabled": true}}' > "$SETTINGS_FILE"
     echo -e "${GREEN}✓${NC} Created settings.json with statusline enabled"
 fi
 
-# Done
-echo -e "${BLUE}[6/6]${NC} Installation complete!"
+# ── Done ──
 echo ""
 echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}Installation Successful!${NC}"
@@ -144,12 +190,12 @@ echo "  - show_cache: Display cache read tokens"
 echo "  - show_git: Show git branch"
 echo "  - show_lines: Display lines changed"
 echo "  - show_velocity: Show tokens/minute velocity"
-echo "  - show_breakdown: Show detailed context breakdown"
+echo "  - show_detailed: Show detailed context breakdown"
 echo "  - compact_mode: Use compact display format"
-echo "  - autocompact_buffer: Reserved tokens for autocompact (default: 33000)"
+echo "  - autocompact_buffer: Reserved tokens before compaction triggers (default: 33000)"
 echo ""
 echo "Slash commands (restart Claude Code to use):"
-echo "  /statusline-breakdown - Toggle context breakdown display"
+echo "  /statusline-detailed - Toggle context breakdown display"
 echo ""
 echo "For more information, visit:"
 echo "  https://github.com/OFurtun/claude-custom-statusline"

@@ -1,4 +1,5 @@
 #!/bin/bash
+# Furtun's Custom Statusline
 # Claude Code Enhanced Status Line
 # Displays session info, token usage, and context window status
 # Uses real context_window data from Claude Code's JSON input

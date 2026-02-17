@@ -36,6 +36,16 @@ Detailed mode:
 curl -fsSL https://raw.githubusercontent.com/OFurtun/claude-custom-statusline/main/install.sh | bash
 ```
 
+### Upgrading
+
+If you already have Furtun's Custom Statusline installed, clone the repo and run the installer locally — it will detect the existing installation, preserve your config values, and add any new config keys:
+
+```bash
+git clone https://github.com/OFurtun/claude-custom-statusline.git
+cd claude-custom-statusline
+bash install.sh
+```
+
 ### Manual Installation
 
 1. Clone this repository:
