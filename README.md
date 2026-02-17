@@ -1,17 +1,16 @@
 # Furtun's Custom Statusline for Claude Code
 
-An enhanced statusline for [Claude Code](https://code.claude.com) that displays comprehensive session information including token usage, cache metrics, git branch, repo info, context window status, and more.
+An enhanced statusline for [Claude Code](https://code.claude.com) that displays comprehensive session information including token usage, session cost, cache statistics, git branch, repo info, context window status, and more.
 
 ## Features
 
-- **Token Tracking**: Real-time display of input/output tokens from Claude Code's native JSON data
-- **Cache Metrics**: Shows cache read tokens to monitor prompt caching efficiency
+- **Token Tracking**: Real-time display of input/output tokens with arrow indicators (↓/↑)
+- **Session Cost**: Live dollar cost of the current session
 - **Context Window Visualization**: Color-coded indicator (🟢/🟡/🔴) showing remaining context space
-- **Context Breakdown**: Optional detailed view showing used context and autocompact buffer
+- **Detailed Mode**: Optional expanded view with context usage, compaction buffer, cache read/write stats, and lines changed
 - **Git Integration**: Displays current branch with caching for performance
-- **Repo & Owner Display**: Shows repository owner/name from git remote origin URL
+- **Repo & Owner Display**: Shows repository owner/name parsed from git remote origin URL
 - **Session Timer**: Tracks elapsed time since session start
-- **Lines Changed**: Shows lines added/removed during the session
 - **Token Velocity**: Optional tokens/minute tracking over a 5-minute window
 - **Slash Commands**: Built-in commands to toggle features without editing config
 - **Configurable Display**: Customize which features to show via JSON config
@@ -20,19 +19,14 @@ An enhanced statusline for [Claude Code](https://code.claude.com) that displays 
 
 ## Preview
 
-Compact mode:
+Normal mode:
 ```
-[Opus 4.6] 📁 ~/Projects/my-project | 🔗 OFurtun/my-project | 🌿 main | 🕐 15m | 🪙 45.2K↓ 12.3K↑ | 💾 7.7M | 🟢 120K/200K (60%) | +234/-89
-```
-
-With context breakdown enabled:
-```
-🟢 120K/200K (60%) | 📊 used: 47K (23%) | 🔒 autocompact: 33K (~16%)
+[Opus 4.6] 📁 ~/Projects/my-project | 🔗 OFurtun/my-project | 🌿 main | 🟢 120K/200K (60%) remaining | 🕐 15m | 🪙 Tokens 45K↓ 12K↑ | 💲0.42
 ```
 
-Verbose mode:
+Detailed mode:
 ```
-[Opus 4.6] 📁 ~/Projects/my-project | 🔗 OFurtun/my-project | 🌿 main | 🕐 Started 15m ago | 🪙 In: 45.2K | Out: 12.3K | Cache: 7.7M | 🟢 120K/200K (60%) | +234/-89
+[Opus 4.6] 📁 ~/Projects/my-project | 🔗 OFurtun/my-project | 🌿 main | 🟢 120K/200K (60%) remaining | 🕐 Started 15m ago | 🪙 Tokens 45K↓ 12K↑ | 💲0.42 | 📊 Used: 47K (23%) | 🔒 Compaction Buffer: 33K (~16%) | 💾 Cache Read: 7.7M | Cache Write: 1.2K | ✏️ Total Lines +234/-89
 ```
 
 ## Installation
@@ -79,7 +73,7 @@ Edit `~/.claude/statusline.config.json` to customize the display:
   "show_git": true,
   "show_lines": true,
   "show_velocity": false,
-  "show_breakdown": false,
+  "show_detailed": false,
   "compact_mode": true,
   "autocompact_buffer": 33000
 }
@@ -89,13 +83,13 @@ Edit `~/.claude/statusline.config.json` to customize the display:
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `show_cache` | boolean | `true` | Display cache read tokens |
+| `show_cache` | boolean | `true` | Show cache read/write stats in detailed mode |
 | `show_git` | boolean | `true` | Show current git branch |
-| `show_lines` | boolean | `true` | Display lines added/removed |
+| `show_lines` | boolean | `true` | Show lines added/removed in detailed mode |
 | `show_velocity` | boolean | `false` | Show token velocity (tokens/min) |
-| `show_breakdown` | boolean | `false` | Show detailed context breakdown |
+| `show_detailed` | boolean | `false` | Enable detailed mode with expanded stats |
 | `compact_mode` | boolean | `true` | Use compact format with symbols |
-| `autocompact_buffer` | number | `33000` | Reserved tokens for autocompact buffer |
+| `autocompact_buffer` | number | `33000` | Reserved tokens for compaction buffer |
 
 ## Slash Commands
 
@@ -103,17 +97,27 @@ After installation, restart Claude Code to enable these commands:
 
 | Command | Description |
 |---------|-------------|
-| `/statusline-breakdown` | Toggle the detailed context breakdown display |
+| `/statusline-detailed` | Toggle the detailed display mode |
 
 ## How It Works
 
 The statusline script:
 1. Receives JSON input from Claude Code with session metadata and context window data
-2. Reads token usage and context percentage directly from Claude Code's native JSON fields
-3. Subtracts the autocompact buffer to calculate usable remaining context
+2. Reads token usage, context percentage, and session cost directly from Claude Code's native JSON fields
+3. Subtracts the compaction buffer to calculate usable remaining context
 4. Resolves repo owner and name from the git remote origin URL
 5. Formats the data according to your configuration
 6. Returns a single-line status string
+
+### Display Layout
+
+The statusline follows a consistent block order in both normal and detailed modes:
+
+```
+[Model] 📁 path | 🔗 owner/repo | 🌿 branch | 🟢 context remaining | 🕐 time | 🪙 tokens | 💲cost | (detailed extras...)
+```
+
+Detailed mode appends extra sections at the end without changing the position of core blocks.
 
 ### Context Tracking
 
@@ -121,8 +125,10 @@ The statusline uses Claude Code's built-in `context_window` JSON data:
 - `context_window.used_percentage` — percentage of context window used
 - `context_window.context_window_size` — total context window size
 - `context_window.total_input_tokens` / `total_output_tokens` — cumulative token counts
+- `context_window.current_usage.cache_read_input_tokens` — tokens served from prompt cache
+- `context_window.current_usage.cache_creation_input_tokens` — tokens written to prompt cache
 
-The autocompact buffer (default 33K) is subtracted from remaining context to show how much usable space you have before autocompaction triggers.
+The compaction buffer (default 33K) is subtracted from remaining context to show how much usable space you have before autocompaction triggers.
 
 ### Performance Features
 
