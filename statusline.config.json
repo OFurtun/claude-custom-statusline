@@ -3,11 +3,7 @@
   "show_git": true,
   "show_lines": true,
   "show_velocity": false,
-  "show_breakdown": true,
+  "show_breakdown": false,
   "compact_mode": true,
-  "context_limit": 200000,
-  "system_prompt_tokens": 2800,
-  "system_tools_tokens": 14500,
-  "mcp_tools_tokens": 17600,
-  "autocompact_buffer": 45000
+  "autocompact_buffer": 33000
 }
