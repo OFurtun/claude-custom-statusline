@@ -3,7 +3,7 @@
   "show_git": true,
   "show_lines": true,
   "show_velocity": false,
-  "show_breakdown": false,
+  "show_detailed": false,
   "compact_mode": true,
   "autocompact_buffer": 33000
 }

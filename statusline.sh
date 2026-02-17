@@ -13,7 +13,7 @@ if [ -f "$CONFIG_FILE" ]; then
     SHOW_GIT=$(jq -r '.show_git // true' "$CONFIG_FILE")
     SHOW_LINES=$(jq -r '.show_lines // true' "$CONFIG_FILE")
     SHOW_VELOCITY=$(jq -r '.show_velocity // false' "$CONFIG_FILE")
-    SHOW_BREAKDOWN=$(jq -r '.show_breakdown // false' "$CONFIG_FILE")
+    SHOW_DETAILED=$(jq -r '.show_detailed // false' "$CONFIG_FILE")
     COMPACT_MODE=$(jq -r '.compact_mode // true' "$CONFIG_FILE")
     AUTOCOMPACT_BUFFER=$(jq -r '.autocompact_buffer // 33000' "$CONFIG_FILE")
 else
@@ -21,7 +21,7 @@ else
     SHOW_GIT=true
     SHOW_LINES=true
     SHOW_VELOCITY=false
-    SHOW_BREAKDOWN=false
+    SHOW_DETAILED=false
     COMPACT_MODE=true
     AUTOCOMPACT_BUFFER=33000
 fi
@@ -217,16 +217,16 @@ fi
 INPUT_DISPLAY=$(format_tokens $INPUT_TOKENS)
 OUTPUT_DISPLAY=$(format_tokens $OUTPUT_TOKENS)
 if [ "$COMPACT_MODE" = "true" ]; then
-    TOKEN_DISPLAY="${INPUT_DISPLAY}↓ ${OUTPUT_DISPLAY}↑"
+    TOKEN_DISPLAY="tokens: ${INPUT_DISPLAY}↓ ${OUTPUT_DISPLAY}↑"
 else
     TOKEN_DISPLAY="In: ${INPUT_DISPLAY} | Out: ${OUTPUT_DISPLAY}"
 fi
 
-# Add cache if enabled and present (only in breakdown mode)
-if [ "$SHOW_CACHE" = "true" ] && [ "$SHOW_BREAKDOWN" = "true" ] && [ "$CACHE_READ" -gt 0 ]; then
+# Add cache if enabled and present (only in detailed mode)
+if [ "$SHOW_CACHE" = "true" ] && [ "$SHOW_DETAILED" = "true" ] && [ "$CACHE_READ" -gt 0 ]; then
     CACHE_DISPLAY=$(format_tokens $CACHE_READ)
     if [ "$COMPACT_MODE" = "true" ]; then
-        TOKEN_DISPLAY="${TOKEN_DISPLAY} | 💾 ${CACHE_DISPLAY}"
+        TOKEN_DISPLAY="${TOKEN_DISPLAY} | 💾 prompt cache: ${CACHE_DISPLAY}"
     else
         TOKEN_DISPLAY="${TOKEN_DISPLAY} | Cache: ${CACHE_DISPLAY}"
     fi
@@ -308,33 +308,33 @@ else
     FREE_FMT=$(format_tokens $FREE_TOKENS)
     LIMIT_FMT=$(format_tokens $CONTEXT_SIZE)
 
-    if [ "$SHOW_BREAKDOWN" = "true" ]; then
+    if [ "$SHOW_DETAILED" = "true" ]; then
         USED_FMT=$(format_tokens $USED_TOKENS)
         AUTOCOMPACT_FMT=$(format_tokens $AUTOCOMPACT_BUFFER)
         AUTOCOMPACT_PCT=$((AUTOCOMPACT_BUFFER * 100 / CONTEXT_SIZE))
 
-        BREAKDOWN_DISPLAY=" | 📊 used: ${USED_FMT} (${USED_PCT}%) | 🔒 autocompact: ${AUTOCOMPACT_FMT} (~${AUTOCOMPACT_PCT}%)"
+        DETAILED_DISPLAY=" | 📊 used: ${USED_FMT} (${USED_PCT}%) | 🔒 compaction buffer: ${AUTOCOMPACT_FMT} (~${AUTOCOMPACT_PCT}%)"
 
-        # Lines changed (only shown in breakdown mode)
+        # Lines changed (only shown in detailed mode)
         if [ "$SHOW_LINES" = "true" ]; then
             LINES_ADDED=$(echo "$input" | jq -r '.cost.total_lines_added // 0')
             LINES_REMOVED=$(echo "$input" | jq -r '.cost.total_lines_removed // 0')
             if [ "$LINES_ADDED" -gt 0 ] || [ "$LINES_REMOVED" -gt 0 ]; then
-                BREAKDOWN_DISPLAY="${BREAKDOWN_DISPLAY} | +${LINES_ADDED}/-${LINES_REMOVED}"
+                DETAILED_DISPLAY="${DETAILED_DISPLAY} | total lines +${LINES_ADDED}/-${LINES_REMOVED}"
             fi
         fi
     else
-        BREAKDOWN_DISPLAY=""
+        DETAILED_DISPLAY=""
     fi
 
-    CONTEXT_DISPLAY="${ICON} ${FREE_FMT}/${LIMIT_FMT} (${FREE_PCT}%)"
+    CONTEXT_DISPLAY="${ICON} ${FREE_FMT}/${LIMIT_FMT} (${FREE_PCT}%) remaining"
 fi # end context_window branches
 
 # Build final status line
 if [ "$COMPACT_MODE" = "true" ]; then
-    STATUS_LINE="[$MODEL_DISPLAY] 📁 ${LOCATION_DISPLAY}$GIT_DISPLAY | ${CONTEXT_DISPLAY} | 🕐 ${SESSION_TIME} | 🪙  ${TOKEN_DISPLAY}${VELOCITY_DISPLAY}${BREAKDOWN_DISPLAY}"
+    STATUS_LINE="[$MODEL_DISPLAY] 📁 ${LOCATION_DISPLAY}$GIT_DISPLAY | ${CONTEXT_DISPLAY} | 🕐 session: ${SESSION_TIME} | 🪙 ${TOKEN_DISPLAY}${VELOCITY_DISPLAY}${DETAILED_DISPLAY}"
 else
-    STATUS_LINE="[$MODEL_DISPLAY] 📁  ${LOCATION_DISPLAY}$GIT_DISPLAY | ${CONTEXT_DISPLAY} | 🕐  Started $SESSION_TIME ago | 🪙  ${TOKEN_DISPLAY}${VELOCITY_DISPLAY}${BREAKDOWN_DISPLAY}"
+    STATUS_LINE="[$MODEL_DISPLAY] 📁  ${LOCATION_DISPLAY}$GIT_DISPLAY | ${CONTEXT_DISPLAY} | 🕐  session: $SESSION_TIME ago | 🪙 ${TOKEN_DISPLAY}${VELOCITY_DISPLAY}${DETAILED_DISPLAY}"
 fi
 
 # Cleanup old session files
