@@ -1,5 +1,4 @@
 #!/bin/bash
-# Furtun's Custom Statusline
 # Claude Code Enhanced Status Line
 # Displays session info, token usage, and context window status
 # Uses real context_window data from Claude Code's JSON input
@@ -182,7 +181,6 @@ input=$(cat)
 MODEL_DISPLAY=$(echo "$input" | jq -r '.model.display_name')
 CURRENT_DIR=$(echo "$input" | jq -r '.workspace.current_dir')
 SESSION_ID=$(echo "$input" | jq -r '.session_id // ""')
-EXCEEDS_200K=$(echo "$input" | jq -r '.exceeds_200k_tokens // false')
 
 # Extract token data directly from JSON (no transcript parsing)
 INPUT_TOKENS=$(echo "$input" | jq -r '.context_window.total_input_tokens // 0')
@@ -272,9 +270,10 @@ fi
 CONTEXT_SIZE=$(echo "$input" | jq -r '.context_window.context_window_size // 200000')
 HAS_CONTEXT_DATA=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
 
-if [ "$EXCEEDS_200K" = "true" ]; then
-    CONTEXT_DISPLAY="🔴 COMPACTED"
-elif [ -z "$HAS_CONTEXT_DATA" ]; then
+# exceeds_200k_tokens fires at 200K regardless of actual context size.
+# On 1M models this is only ~20% — not a compaction signal.
+# Instead, check if used% puts us past the autocompact threshold.
+if [ -z "$HAS_CONTEXT_DATA" ]; then
     CONTEXT_DISPLAY="⏳"
 else
     USED_PCT=$HAS_CONTEXT_DATA

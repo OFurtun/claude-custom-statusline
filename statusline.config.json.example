@@ -1,0 +1,18 @@
+{
+  "show_cache": true,
+  "show_git": true,
+  "show_lines": true,
+  "show_velocity": false,
+  "compact_mode": true,
+  "context_limit": 200000,
+  "_comment": "Configuration for Claude Code statusline",
+  "_options": {
+    "show_cache": "Display cache token count (default: true)",
+    "show_git": "Display git branch name (default: true)",
+    "show_lines": "Display lines added/removed (default: true)",
+    "show_velocity": "Display tokens/minute velocity (default: false)",
+    "compact_mode": "Use shorter, more compact display format (default: true)",
+    "context_limit": "Context window limit in tokens (default: 200000)"
+  },
+  "_note": "Copy this file to ~/.claude/statusline.config.json and customize as needed"
+}
