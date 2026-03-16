@@ -85,30 +85,14 @@ calculate_velocity() {
     echo "0"
 }
 
-# Get git branch (cached)
+# Get git branch (no cache — branch --show-current is <1ms, caching causes stale display)
 get_git_branch() {
     local current_dir="$1"
     local session_id="$2"
-    local git_cache="/tmp/.claude_statusline_git_${session_id}.cache"
 
-    if [ -f "$git_cache" ]; then
-        read -r cached_dir cached_branch < "$git_cache"
-        if [ "$cached_dir" = "$current_dir" ]; then
-            echo "$cached_branch"
-            return
-        fi
+    if git -C "$current_dir" --no-optional-locks rev-parse --git-dir > /dev/null 2>&1; then
+        git -C "$current_dir" --no-optional-locks branch --show-current 2>/dev/null
     fi
-
-    if git --no-optional-locks rev-parse --git-dir > /dev/null 2>&1; then
-        local branch=$(git --no-optional-locks branch --show-current 2>/dev/null)
-        if [ -n "$branch" ]; then
-            echo "$current_dir $branch" > "$git_cache"
-            echo "$branch"
-            return
-        fi
-    fi
-
-    echo ""
 }
 
 # Get git repository name from remote origin URL (cached)
