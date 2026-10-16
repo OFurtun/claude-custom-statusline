@@ -341,8 +341,13 @@ else
     STATUS_LINE="[$MODEL_DISPLAY] 📁  ${LOCATION_DISPLAY}$GIT_DISPLAY | ${CONTEXT_DISPLAY} | ${TIME_DISPLAY} | 🪙 ${TOKEN_DISPLAY}${VELOCITY_DISPLAY}${COST_DISPLAY}${DETAILED_DISPLAY}"
 fi
 
-# Cleanup old session files
-find /tmp -name ".claude_session_*.txt" -mtime +1 -delete 2>/dev/null
-find /tmp -name ".claude_statusline_*" -mtime +1 -delete 2>/dev/null
+# Cleanup old session files. They all live directly in /tmp, so never descend into it (/tmp can
+# hold hundreds of thousands of files, and this runs on every render of every session), and do
+# it at most once an hour.
+CLEANUP_STAMP="/tmp/.claude_statusline_cleanup.stamp"
+if [ -z "$(find "$CLEANUP_STAMP" -mmin -60 2>/dev/null)" ]; then
+    touch "$CLEANUP_STAMP" 2>/dev/null
+    find /tmp -maxdepth 1 \( -name ".claude_session_*.txt" -o -name ".claude_statusline_*" \) -mtime +1 -delete 2>/dev/null
+fi
 
 echo "$STATUS_LINE"
